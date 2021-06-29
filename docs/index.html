@@ -263,7 +263,7 @@
       .append("circle")
       .attr("transform", "translate(10,0)")
       .attr("cy", "3ex").attr("r", "1ex")
-      .attr("cx", function(d,i) {return String(i*20)+"ex" } )
+      .attr("cx", function(d,i) {return String(i*17)+"ex" } )
       .attr("fill",  function(d,i) {return d} )
 
     var TXTlegende= ["Non évaluée", "Ratée",  "Bof...", "Réussie", "Requis", "Permet de"];
@@ -273,7 +273,7 @@
       .append("text")
       .attr("transform", "translate(10,0)")
       .attr("y", "3.5ex").attr("text-anchor", "left")
-      .attr("x", function(d,i) {return String(2+i*20)+"ex" } )
+      .attr("x", function(d,i) {return String(2+i*15)+"ex" } )
       .text(function(d,i) {return TXTlegende[i] });
 
 
