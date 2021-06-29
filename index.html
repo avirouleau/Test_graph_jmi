@@ -1,0 +1,977 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <meta name="description" content="Diagramme compétence">
+  <meta name="author" content="Bruno Brouard">
+
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <!-- The above 3 meta tags *must* come first in the head; any other head content must come *after* these tags -->
+  <!-- Bootstrap -->
+  <link href="bootstrap/css/bootstrap.min.css" rel="stylesheet">
+  <script src="bootstrap/js/jquery-2.2.1.min.js"></script>
+  <!-- <script src="tether-1.2.0/bootstrap/js/tether.min.js"></script> -->
+  <script src="bootstrap/js/bootstrap.min.js"></script>
+
+  <!-- HTML5 shim and Respond.js for IE8 support of HTML5 elements and media queries -->
+  <!-- WARNING: Respond.js doesn't work if you view the page via file:// -->
+  <!--[if lt IE 9]>
+    <script src="https://oss.maxcdn.com/html5shiv/3.7.2/html5shiv.min.js"></script>
+    <script src="https://oss.maxcdn.com/respond/1.4.2/respond.min.js"></script>
+  <![endif]-->
+
+  <title>Graphe des objectifs et compétences</title>
+  <script type="text/javascript" src="http://d3js.org/d3.v3.min.js"></script>
+  <style type="text/css">
+
+    p {
+      -webkit-margin-before: 0px;
+      -webkit-margin-after: 0px;
+    }
+
+
+    body {
+      font-size: 0.8vw;
+      font-family:arial,tahoma;
+    }
+
+/*pour supprimer le padding dans toutes les colonnes d'une ligne bootstrap */
+    .no-gutter > [class*='col-'] {
+        padding-right:0;
+        padding-left:0;
+    }
+
+/*pour supprimer les marges */
+    .pas2marge {
+        margin-right:0;
+        margin-left:0;
+    }
+
+/*pour supprimer le padding dans les lignes*/
+    .pas2padding {
+        padding-right:0;
+        padding-left:0;
+    }
+
+    #IDtitreDiagramme {
+      background-color: #143FB6;
+      color:white;
+      border-radius: 1ex;
+      font-weight: bold;
+      text-align: center;
+    }
+
+    #IDsvg {    /* contient le svg et les infobulles*/
+      position: relative;
+      display:block;
+    }
+
+    .hidden {
+      display: none;
+    }
+
+    .lookINFObulle {
+      height: auto;
+      font-size: 1.1vw;
+      padding: 0ex 1ex;
+      -webkit-border-radius: 1ex;
+      -moz-border-radius: 1ex;
+      border-radius: 1ex;
+      -webkit-box-shadow: 0.7ex 0.7ex 1ex rgba(0, 0, 0, 0.4);
+      -moz-box-shadow: 0.7ex 0.7ex 1ex rgba(0, 0, 0, 0.4);
+      box-shadow: 0.7ex 0.7ex 1ex rgba(0, 0, 0, 0.4);
+      pointer-events: none;
+    }
+
+    #IDinfoCOMPETENCE {
+      width: 25%;
+      background-color: white;
+      color:black;
+      position: absolute;
+      opacity:0.9; /*jmg pour lire plus facilement le contenu d une competence */
+      margin: 0;
+    }
+
+    #IDinfoCOURS {
+      width: 15%;
+      background-color: #B4E613;
+      position: absolute;
+      opacity:0.9;
+      margin: 0;
+    }
+
+/*Pour tous les nom de cours*/
+    [class*="TitreCoursS"] {
+      font-weight: bold;
+    }
+
+    select {
+      font-weight:bold;
+      color: #FFFFFF;
+      background-color:#40A3E5;
+      text-align:center;
+      text-shadow:0 -1px 0 rgba(0, 0, 0, 0.25);
+      border-radius:3px;
+      -webkit-border-radius:3px;
+      -webkit-transition:0.3s ease all;
+      -moz-transition:0.3s ease all;
+      -ms-transition:0.3s ease all;
+      -o-transition:0.3s ease all;
+      transition:0.3s ease all;
+    }
+
+
+    .CLSmenu:hover {
+      background-color:#143FB6;
+    }
+
+    #IDbiblioBOUTON {
+      /*float:right;*/
+      /*padding:0.5ex ;*/
+      font-weight:bold;
+      color: #FFFFFF;
+      background-color:#40A3E5;
+      text-align:center;
+      text-shadow:0 -1px 0 rgba(0, 0, 0, 0.25);
+      border-radius:3px;
+      -webkit-border-radius:3px;
+      }
+
+    #IDmenuBAR {/*pour positionner l'infobulle de la biblio*/
+      /*position: absolute;*/
+    }
+
+    #IDbiblio  {
+      position: absolute;
+      bottom: 3em;
+      right: 10em;
+      width: 25%;
+      background-color: #143FB6;
+      color:white;
+    }
+
+
+</style>
+
+</head>
+<body>
+    <div class="container-fluid pas2padding">  <!-- permet d'utiliser toute la largeur de la fenêtre -->
+      <div class="row pas2marge">
+        <div id="IDgraphecomp">
+      </div>
+    </div>
+  </div>
+
+  <script type="text/javascript">
+
+//  DEFINITION DES CONSTANTES
+//    var largTOTAL = 1300, hautTOTAL =550;   // taille du diagramme svg en pixel
+    var largTOTAL = window.innerWidth, hautTOTAL =window.innerHeight*0.80;   // taille du diagramme svg en pixel
+    var largINIT = largTOTAL / 6;          // largeur initiale des 6 semestres
+    var largMOINS = largINIT / 2;                     // largeur diminuée des semestres
+    var largPLUS = largTOTAL - 9*largMOINS; // largeur zoomée des semestres
+    var zoomPLUS = largPLUS/largINIT;       // facteur d'agrandissment
+    var zoomMOINS = largMOINS/largINIT;     // facteur de réduction
+
+    var MAXx = 100;    // les coordonnées dans les semestres vont de 0 à MAXx
+    var MAXy = 102;    // les coordonnées dans les semestres vont de 0 à MAXy
+
+    // on définit la position dans les coordonnées du semestre ni zoomé, ni diminué
+    var echx = d3.scale.linear().domain([0,MAXx]).range([0,largINIT]);
+    var echxMOINS = d3.scale.linear().domain([0,MAXx]).range([0,largMOINS]);
+    var echxPLUS = d3.scale.linear().domain([0,MAXx]).range([0,largPLUS]);
+
+    var echy = d3.scale.linear().domain([0,MAXy]).range([hautTOTAL,0]);
+    var rayonCOMP = 7;      // rayon des bulles par défaut
+    var rayonZOOMplus = 1.5;    // facteur de zoom pour les bulles des semestres zoomés ou pas
+    var rayonZOOMmoins = 0.7;    // facteur de zoom pour les bulles des semestres zoomés ou pas
+
+    // on utilise 20 couleurs prédéfinies
+    var coul = ["#70C5F1", "#89CBFF", "#8B66CE", "#BB9ED8"];
+    var coulCOURS = "#CEFB30"
+
+    // couleur des semestres
+    var coul10RECT = [coul[0], coul[1], coul[0], coul[1], coul[0], coul[1]];
+    var listeDESsemestres = ["S1","S2","S3","S4","S5","S6"];
+
+    var ZOOMactuel=0;    // cette variable enregistre le numéro du zoom en cours.
+    var AFFICHEcours=1;
+
+    // codage couleur des competences
+    // 0=non évalué, 1=raté, 2=bof, 3=reussi  :
+    var PALETTEcouleurCOMP = ["#867575", "#ff0000" , "#FF9001", "#1CCA1C"];
+
+    // couleur de mise en évidence des ascendants ou descendants des compétences
+    // BLEU QUI PETE
+    var coulPARENTS = "#F500FF";
+    var coulFILS = "#143FB6";
+    var coulPOINTEUR = "#FAFF00";
+
+    var DATAetudiant;            // undefined si pas d'étudiant : contient les données CSV de l"étudiant sélectionné
+
+    var datacsvFILTREE;           // contient les données des étudiants filtrées par promotion
+
+    var FilsDe = new Object;  // variable contenant les fils des compétences
+
+    // calcul du tableau des translations tabTRANSL à appliquer à chaque semestre en fonction du zoom choisi par l"utilisateur
+    var tabTRANSL = tabZoomRect = temp =  [];
+    for(i = 0; i < 11; i++)   // 11 cas de zoom [0=pas de zoom, 1 zoom semestre 1]
+    {
+      temp = [];  temp[0] = 0;
+        for(j = 1; j < 6; j++) // pour chaque semestre (6)
+        {
+          if (i==0) {  temp[j] = largINIT*j; }
+          else      {  temp[j] = temp[j-1] + (j==i ? largPLUS : largMOINS );    }
+        }
+        tabTRANSL[i] = temp;
+      }
+
+    // calcul du tableau des facteurs de zoom à appliquer à chaque semestre en fonction du zoom choisi par l"utilisateur
+    var tabZoomRect=[];
+    for(i = 0; i < 11; i++)   // 11 cas de zoom [0=pas de zoom, 1 zoom semestre 1]
+    {
+      temp = Array(6).fill(zoomMOINS);   // tableau de 6 valeur zoomMOINS
+        for(j = 0; j < 6; j++) // pour chaque semestre (6)
+        {
+          if (i==0) { temp[j] = 1; }
+          else      { if (j==(i-1))  temp[j] = zoomPLUS  }
+        }
+      tabZoomRect[i] = temp;
+    }
+
+
+// Création du <div> qui contient le titre
+    d3.select("#IDgraphecomp").append("div")
+      .attr('class', 'row no-gutter pas2marge')
+      .append("div")
+      .attr('class',"col-sm-5 col-sm-offset-3 no-gutter lookINFObulle" )
+      .attr("id","IDtitreDiagramme")                                   //    #IDtitreDiagramme
+      .text("Graphe des objectifs pédagogiques : Licence Villebon Charpak");
+
+
+
+// Création du <div> qui contient le <svg> de la légende
+    d3.select("#IDgraphecomp").append("div")
+      .attr("id","IDlegende")                                   //    #IDlegende
+      .append("svg")
+      .attr("width",largTOTAL).attr("height","5ex");
+
+// Création du contenu de la legende
+    d3.select("#IDlegende svg")
+      .selectAll("circle").data( PALETTEcouleurCOMP.concat(coulPARENTS,coulFILS) ).enter()
+      .append("circle")
+      .attr("transform", "translate(10,0)")
+      .attr("cy", "3ex").attr("r", "1ex")
+      .attr("cx", function(d,i) {return String(i*20)+"ex" } )
+      .attr("fill",  function(d,i) {return d} )
+
+    var TXTlegende= ["Non évaluée", "Ratée",  "Bof...", "Réussie", "Requis", "Permet de"];
+
+    d3.select("#IDlegende svg")
+      .selectAll("text").data( TXTlegende ).enter()
+      .append("text")
+      .attr("transform", "translate(10,0)")
+      .attr("y", "3.5ex").attr("text-anchor", "left")
+      .attr("x", function(d,i) {return String(2+i*20)+"ex" } )
+      .text(function(d,i) {return TXTlegende[i] });
+
+
+// Création du <div> qui contient le <svg>
+// et qui permet de dézoommer en cliquant à côté
+    d3.select("#IDgraphecomp").append("div")
+      .attr("id","IDsvg")                                   //    #IDsvg
+      .on("click", function() {zoomrectangle(0)} );
+
+// Création du cadre <svg> dans le <div>
+    var svgContainer = d3.select("#IDsvg").append("svg")
+      .attr("class","CLSvraiSVG")                                   //    #CLSvraiSVG
+      .attr("width",largTOTAL).attr("height",hautTOTAL);
+
+
+
+//=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-  CREATION INFOBULLE
+// Création d'un <div> qui contient l'infobulle masquée
+    var infobulle = d3.select("#IDsvg")
+      .append("div")
+      .attr("id","IDinfoCOMPETENCE" ).attr("class","hidden lookINFObulle");        //  #IDinfoCOMPETENCE
+
+// Création d'un <p> conteneur
+    //infobulle.append("p").attr("id","IDnomDUcours1" );   // #IDnomDUcours
+
+// ajout d'un texte VIDE qui sera différent pour chaque compétence
+    infobulle.append("p").attr("id","IDvalue" ).text("");     // description de la compétence
+    //infobulle.append("p").attr("id","IDresponsable1" ).text("");    // nom du responsable
+//=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-  FIN CREATION INFOBULLE
+
+//=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-  CREATION INFOBULLE 2
+// Création d'un <div> qui contient l'infobulle masquée
+    infobulle = d3.select("#IDsvg")
+    .append("div")
+    .attr("id","IDinfoCOURS" ).attr("class","hidden lookINFObulle");        //  #IDinfoCOURS
+
+// Création d'un <p> conteneur
+    infobulle.append("p").attr("id","IDnomDUcours2" );   // #IDnomDUcours
+
+// ajout d'un texte VIDE qui sera différent pour chaque compétence
+    infobulle.append("p").attr("id","IDresponsable2" ).text("");  // nom du responsable
+//=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-  FIN CREATION INFOBULLE2
+
+//=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-  CREATION INFOBULLE biblio
+    d3.select("#IDgraphecomp").append("div").attr("id","IDbiblio" ).classed("hidden lookINFObulle", true);
+
+    document.getElementById("IDbiblio")
+    .innerHTML = "<p>"+"J.-M. Génevaux, Coopérons pour suivre les étudiants à la trace :  l’accompagnement des enseignants à la complétude du graphe des Compétences et Objectifs Pédagogiques, Question Pédagogique dans l'Enseignement Supérieur 2019, Brest"+"</p>"+"<p>"+"J.-M. Génevaux, B. Brouard, A. Pelat, Déploiement d'un graphe des compétences L1-M2 en acoustique-mécanique au sein d'une université, Congrès Français d'Acoustique 2016, Le Mans"+"</p>"+
+                 "<p>"+" Bruno Brouard, Code javascript de ce logiciel, rapport interne, UFR Sciences, Le Mans Université, décembre 2015"+"</p>";
+
+//=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-  FIN CREATION INFOBULLE bibliographie
+
+
+//=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-  CREATION DES MENUS
+// Création d'un <div> qui contient la barre du bas
+    d3.select("#IDgraphecomp").append("div").attr("id","IDmenuBAR" ).attr("class","row");
+
+    var TXTmenu = "Sélectionnez une année...";
+    var CHOIXmenuANNEE = [TXTmenu, "L1", "L2", "L3", "M1", "M2" ];
+
+    d3.select("#IDmenuBAR")
+    .append("select")
+    .attr("id","IDmenuAnnee" ).attr("class","CLSmenu hidden col-xs-12 col-sm-3 col-md-2")        //  #IDmenuAnnee
+    .selectAll("option").data(CHOIXmenuANNEE).enter()
+    .append("option")
+    .attr("value", function(d,i) {return CHOIXmenuANNEE[i]} )
+    .text(function(d,i) {return CHOIXmenuANNEE[i]} );
+
+    d3.select("#IDmenuBAR")
+    .append("select")
+    .attr("id","IDmenuEtudiant" ).attr("class","CLSmenu hidden col-xs-12 col-sm-4 col-md-3")        //  #IDmenuEtudiant
+    .append("option")
+    .attr("value", "0" )
+    .text("Sélectionnez un étudiant...");
+//=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-  FIN CREATION DES MENUS
+
+    d3.select("#IDmenuBAR")
+    .append("div")
+    .attr("id","IDbiblioBOUTON" ).attr("class","col-xs-offset-8 col-xs-4 col-sm-offset-4 col-sm-2  col-md-offset-6 col-md-1")
+    .text("Bibliographe")
+    .on("mouseover", function() {
+      d3.select("#IDbiblio").classed("hidden", false);
+      } )
+    .on("mouseout", function() { d3.select("#IDbiblio").classed("hidden", true); } );
+
+
+
+
+// numéro de colonne pour les compétences
+    var COLcours = 1, COLparent = 6;
+
+    var rectData;     // contient les données des compétences, triées par semestre
+    var LESBULLES;   // stocke la référence à toutes les bulles
+    var liste2compORIG = [];   // stocke la liste des compétences contenu dans le fichier "competence.csv"
+    var listeDEScours = [];   // stocke la liste des cours contenu dans le fichier "competence.csv"
+
+// lecture du fichier CSV contenant la liste des compétences
+    d3.csv("competence.csv" , function(error, data) {
+      if (error) {
+        console.log("erreur de lecture csv competence = " + error);
+      } else {                  // Pas d'erreur de lecture !!!
+        var S1 = data.filter(function(obj) { return obj["Semestre"] == "S1"; });
+        var S2 = data.filter(function(obj) { return obj["Semestre"] == "S2"; });
+        var S3 = data.filter(function(obj) { return obj["Semestre"] == "S3"; });
+        var S4 = data.filter(function(obj) { return obj["Semestre"] == "S4"; });
+        var S5 = data.filter(function(obj) { return obj["Semestre"] == "S5"; });
+        var S6 = data.filter(function(obj) { return obj["Semestre"] == "S6"; });
+
+        // tableau contenant toutes les compétences
+        rectData = [S1, S2, S3, S4, S5, S6];
+
+        // on récupère la liste triées des compétences existantes
+        data.forEach(function(d) { liste2compORIG.push(d.Code) } );
+        liste2compORIG.sort();
+
+        // on recupere la liste des cours dans TMP
+        TMP=[];
+        data.forEach(function(d) { TMP.push(d.Cours) } );
+
+        // on filtre le tableau TRIE en retirant les doublons
+        listeDEScours = TMP.sort().filter(function(valeur,indice,tableau) {
+          if (indice >= 1) {
+            if (valeur == tableau[indice-1]  ) {return 0} else {return 1}
+          } else
+          {
+            return 1    // on garde le premier !!!
+          }
+        });
+
+        // on convertit le tableau en object
+        TMP = listeDEScours.reduce(function(o, NomDuCours, i) {    // voir sur internet
+          o[i] = {NomDuCours};
+          return o;
+        }, {});
+
+        var toto = listeDEScours.length;
+        listeDEScours = TMP;
+        listeDEScours.length = toto;
+
+// on cherche les coord max et min pour tous les cours
+        for (var i in listeDEScours) {
+
+          // on récupère toutes les bulles du cours
+          TMP = data.filter(function(obj) { return obj["Cours"] == listeDEScours[i].NomDuCours; });
+
+          // on cherche les coordonnées min et max de ce cours
+          var tmpx = [] , tmpy = [];
+          for (var ii in TMP) {
+            tmpx.push(TMP[ii].Cx);
+            tmpy.push(TMP[ii].Cy);
+          }
+
+          // on les enregistre dans le tableau "listeDEScours" :
+          listeDEScours[i]["minx"] = Math.min.apply(null, tmpx);  // Math.min.apply(null, tmpy) => recherche du minimum d'un tableau
+          listeDEScours[i]["miny"] = Math.min.apply(null, tmpy);
+          listeDEScours[i]["maxx"] = Math.max.apply(null, tmpx);
+          listeDEScours[i]["maxy"] = Math.max.apply(null, tmpy);
+          listeDEScours[i]["Semestre"] =  SemestreDuCours(listeDEScours[i].NomDuCours);
+          listeDEScours[i]["Responsable"] =  ResponsableDuCours(listeDEScours[i].NomDuCours);
+        }
+
+// on crée un groupe <g> pour chaque semestre et on attribue les données "rectData" à chacun.
+// Chaque groupe peut être zoomé et translaté independamment
+      var CHAQUESEMESTRE= svgContainer.selectAll("g").data(rectData).enter()
+        .append("g").attr("class","myrect")
+        .attr("transform", function(d,i) { return "translate("+(largINIT*i)+") scale(1,1)"   })
+        .attr("id",  function(d,i) {return "IDrect"+(i+1)});      // #IDrect1, #IDrect2, ...
+
+      CHAQUESEMESTRE
+        .append("rect")    // on ajoute les rectangles identifiants chaque semestre
+        .attr("x", 0).attr("y", 0)
+        .attr("width", largINIT)
+        .attr("height", hautTOTAL)
+        .attr("fill",function(d,i) { return coul10RECT[i]; })
+        .on("click",function(d,i) {d3.event.stopPropagation();return zoomrectangle(i+1) } );
+
+      var titres = ["Licence 1", "Licence 1", "Licence 2", "Licence 2", "Licence 3", "Licence 3"];
+
+      CHAQUESEMESTRE
+        .append("g")    // on ajoute ensuite un groupe <g> pour les objets non déformés par le zoom
+        .attr("class","pas2deform")
+        .append("text")              // on ajoute le titre des semestres
+        .attr("class","TITRESsemestre")
+        .attr("x", largINIT/2).attr("y", echy(MAXy))    // on utilise SCALEy
+        .attr("dy", 1.5+"ex")                                 // position verticale
+        .attr("text-anchor","middle")
+        .text( function (d,i) { return titres[i] + "  Semestre" + (i+1) ; } );
+
+//=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-  CREATION DES BULLES
+// Pour chaque semestre, on attribue les données à chaque "ellipse" créées
+      LESBULLES = CHAQUESEMESTRE.selectAll("ellipse")
+        .data(function(d) { return d; })
+        .enter()
+        .append("a")
+            .attr("xlink:href",function(d,i) {     // lien HTML dans un svg !!!
+                return d.WWW;
+            })
+        .attr("target","_blank")
+        .append("ellipse")
+        .attr("id", function(d,i) {return d.Code } )
+        .attr("class","bulle")
+        .attr("cx", function(d,i) {return echx( d.Cx ) })
+        .attr("cy", function(d,i) {return echy( d.Cy ) })
+        .attr("rx", rayonCOMP)
+        .attr("ry", rayonCOMP)
+        .attr("fill", PALETTEcouleurCOMP[0])
+        .on("mouseover", function(d) {ENTREbulle(d,this) } )
+                  // "this" se réfère à la bulle qui déclenche l'evenement
+        .on("mouseout", function(d) {SORTIEbulle(d,this) } );
+
+//=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-  FIN CREATION DES BULLES
+
+//=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-  DEBUT CREATION DES RECTANGLES ENTOURANT LES COURS
+        d3.select(".CLSvraiSVG").append('g')  // contenant que l'on supprime par la suite
+          .attr("id","IDtitreCours")
+          .selectAll("rect")
+          .data(listeDEScours).enter()
+          .append("rect")
+          .attr("class", function(d) {return "Cours"+d.Semestre} )          // on attribue une classe qui dépend du semestre
+          .attr("x", function(d) {return echx( d.minx ) - rayonCOMP*1. ; })
+          .attr("y", function(d) {return echy( d.maxy ) - rayonCOMP*1.8 ; })
+          .attr("width", function(d) {return echx(d.maxx) - echx(d.minx) + rayonCOMP*2 ; })
+          .attr("height", function(d) {return echy(d.miny) - echy(d.maxy) + rayonCOMP*2*1.8  ; })
+          .style("fill-opacity", 0.6).style("fill", coulCOURS)
+          .on("click",function(d,i) {d3.event.stopPropagation();return zoomrectangle(d.Semestre.slice(1,3)) } )
+          .on("mouseover", function(d) {ENTREcours(d,this) } )
+                  // "this" se réfère au rectangle qui déclenche l'evenement
+          .on("mouseout", function(d) {SORTIEcours() } )
+
+// on crée les tableaux des PARENTS des compétences
+          data.forEach(function(d) { TRAVAILsurFILIATIONbulle(d); } );
+
+//  Déplacement des rectangles entourant les cours dans le DOM
+        for (var i in listeDESsemestres) {
+          temp = document.getElementsByClassName("Cours" + listeDESsemestres[i] );
+          for (var ii = 0; ii < temp.length; ii++) {
+            TMP = document.getElementById("IDrect" + listeDESsemestres[i].slice(1,3));
+            TMP.insertBefore(temp[ii],TMP.firstChild.nextSibling );    // on insère APRES TMP.firstChild !!!
+          }
+        }
+//=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-  FIN CREATION DES RECTANGLES ENTOURANT LES COURS
+
+//=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-  DEBUT CREATION DES TITRES DES COURS
+        d3.select("#IDtitreCours")
+          .selectAll("text")
+          .data(listeDEScours).enter()
+          .append("text")
+//          .attr("transform", function(d,i) { return "translate("+tabTRANSL[ZOOMactuel][d.Semestre.slice(1,3)-1 ]+",0)"   })
+          .attr("class", function(d) {return "TitreCours"+d.Semestre} )          // on attribue une classe qui dépend du semestre
+          .attr("x", function(d) {return echx( d.minx ) ; })
+          .attr("y", function(d) {return echy( d.maxy ) ; })
+          .attr("dx", "-1ex").attr("dy", "-1.5ex")
+          .attr("text-anchor", "start")
+          .style('fill', '#000')
+          .style("opacity", 1)
+          .text(function(d) {return d.NomDuCours; });
+
+//  Déplacement des titres des cours dans le DOM
+        for (var i in listeDESsemestres) {
+          temp = document.getElementsByClassName("TitreCours" + listeDESsemestres[i] );
+          for (var ii = 0; ii < temp.length; ii++) {
+            TMP = document.getElementsByClassName("pas2deform")[i];
+            TMP.insertBefore(temp[ii], null);    // on insère AVANT TMP !!!
+          }
+        }
+
+// Suppression du groupe <g> qui a permis la construction
+        d3.select("#IDtitreCours").remove();
+
+//=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-  FIN CREATION DES TITRES DES COURS
+
+
+//=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=- FIN de lecture du fichier CSV contenant la liste des compétences
+      }
+    });
+
+// Attribution d'une fonction à chaque menu
+    d3.select("#IDmenuAnnee").on("change", fonctionchoixannee);
+    d3.select("#IDmenuEtudiant").on("change", fonctionchoixetudiant);
+
+// on monte d'un cran dans le menu etudiant quand on appuie sur la touche +
+// on descend d'un cran dans le menu etudiant quand on appuie sur la touche -
+// on affiche ou pas le nom des cours quand on appuie sur la touche c ou C
+    document.onkeydown = function(e) {
+      if (e.keyCode == 107){    // code +
+        if (document.getElementById("IDmenuEtudiant").selectedIndex < document.getElementById("IDmenuEtudiant").length-1) {
+            document.getElementById("IDmenuEtudiant").selectedIndex++ ;
+        }
+        fonctionchoixetudiant();
+      }
+      if (e.keyCode == 109){    // code -
+        if (document.getElementById("IDmenuEtudiant").selectedIndex >=1) {
+            document.getElementById("IDmenuEtudiant").selectedIndex-- ;
+        }
+        fonctionchoixetudiant();
+      }
+      if (e.keyCode == 67){    // code C
+        AffichageTitreCours();
+      }
+    }
+
+
+    var csvETUD;    // contient le "tableau" des compétences de tous les étudiants
+                    // csvETUD[4]["nom"] = nom de l"étudiant numéro 5 ou bien
+                    // csvETUD[4].nom = nom de l"étudiant numéro 5.
+    var liste2comp;  // contient la liste des compétences existantes a partir du fichier "etudiant.csv"
+    var CouleurCompetence = {};       // objet contenant CLE=competence, VALEUR = couleur
+                                      // le tableau DOIT être initialisé pour que cela fonctionne
+
+// lecture du fichier CSV contenant la liste des étudiants et leur attribution de competence ou pas
+    d3.csv("etudcompmel.csv" , function(error, data) {
+      if (error) {
+        console.log("erreur de lecture csv = " + error);
+      } else {                  // Pas d'erreur de lecture !!!
+        csvETUD = data;
+        // on récupère la liste des compétences existantes : clés à partir de la 8e colonnes
+        liste2comp = d3.keys( csvETUD[0] ).slice(7);
+
+        // vérifie que les compétences soient les mêmes dans les deux fichiers csv
+        if (!TableauxEgaux(liste2compORIG,liste2comp.sort() ) ) {
+          console.log("Vérifiez les noms des objectifs/compétences dans les fichiers CSV !!!")
+        }
+
+        var temp = [];
+        // on récupère la liste triées des identifiants étudiant
+        data.forEach(function(d) { temp.push(d.identifiant) } );
+        temp.sort();
+        // on recherche les doublons
+        var avant = "null";
+        for (var i in temp) {
+          if (avant == temp[i] ) {
+            console.log("L'étudiant "+temp[i]+" est en double !!! ");
+          }
+          avant = temp[i];
+        }
+
+
+        // initialisation à la couleur par defaut car pas encore d'etudiant selectionné
+        liste2comp.map( function( value, index ) {
+          CouleurCompetence[ value ] = PALETTEcouleurCOMP[0];
+        } );
+
+        // on rend visible les menus puisque le chargement du fichier est terminé
+        d3.select("#IDmenuAnnee").classed("hidden", false);
+        d3.select("#IDmenuEtudiant").classed("hidden", false);
+
+        fonctionchoixannee();   // permet de peupler le menu des etudiants
+
+      }
+    });
+
+
+
+//=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
+// DECLARATION DE MES FONCTIONS
+//=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
+    function SemestreDuCours(cours) {   // renvoie le semestre où se situe le cours
+        for (var key in rectData) {
+          for (var key2 in rectData[key]) {
+            if (rectData[key][key2].Cours == cours) return rectData[key][key2].Semestre;
+          }
+        }
+        return false;
+    }
+
+    function ResponsableDuCours(cours) {   // renvoie le semestre où se situe le cours
+        for (var key in rectData) {
+          for (var key2 in rectData[key]) {
+            if (rectData[key][key2].Cours == cours) return rectData[key][key2].Responsable;
+          }
+        }
+        return false;
+    }
+
+    function TableauxEgaux(a, b) {    // voir stackoverflow : indique si deux tableaux contiennent la même chose
+      if (a === b) return true;
+      if (a == null || b == null) return false;
+      if (a.length != b.length) return false;
+                                    // Les tableaux sont supposés être TRIES !!!
+      for (var i in a) {
+        if (a[i] !== b[i]) return false;
+      }
+      return true;
+    }
+
+    function zoomrectangle(j) {   //  j indique le numéro du semestre zoomé (0=aucun, 1=premier,...)
+      if (j != ZOOMactuel) {    // si j = ZOOMactuel, on ne fait rien
+        ZOOMactuel = j;     // on conserve le numéro du nouveau semestre zoomé
+
+        svgContainer.selectAll("g.myrect")
+        .transition().duration(function(d,i) {return 100 + 100 * i})
+        .ease("bounce")
+        .each("start",function(d,i)
+          {
+            svgContainer.selectAll("ellipse").attr("opacity",0 ); // on rend invisible les ellipses
+            // on rend invisible les rectangles des cours du semestre concerné
+            d3.selectAll(".CoursS"+(i+1) ).style("opacity", 0 );
+            d3.selectAll(".TitreCoursS"+(i+1) ).style("opacity", 0 );
+
+            if (j == 0) {      // les bulles ont le rayon par défaut
+              LESBULLES.attr("rx", rayonCOMP);
+              LESBULLES.attr("ry", rayonCOMP);
+
+              d3.selectAll(".TitreCoursS" + (i+1) ).attr("x", function(dd) { return echx(dd.minx); });
+            } else {
+              if ( i == (j-1) ) {     // on sélectionne les bulles du semestre zoomé
+                d3.selectAll("#IDrect"+(i+1)+" .bulle")
+                .attr("rx", rayonCOMP/zoomPLUS*rayonZOOMplus)
+                .attr("ry", rayonCOMP*rayonZOOMplus);
+                // on sélectionne les titres des cours du semestre zoomé
+                d3.selectAll(".TitreCoursS" + (i+1) ).attr("x", function(dd) { return echxPLUS(dd.minx); });
+              } else {                // on sélectionne les bulles des semestres NON zoomés
+                d3.selectAll("#IDrect"+(i+1)+" .bulle")
+                .attr("rx", rayonCOMP/zoomMOINS*rayonZOOMmoins)
+                .attr("ry", rayonCOMP*rayonZOOMmoins);
+                // on sélectionne les titres des cours des semestres NON zoomés
+                d3.selectAll(".TitreCoursS" + (i+1) ).attr("x", function(dd) { return echxMOINS(dd.minx); });
+              }
+            }
+
+          })
+          .attr("transform", function(d,i)        // on déplace et zoome les semestres
+            {
+              return "translate("+tabTRANSL[j][i]+"),scale("+tabZoomRect[j][i]+",1)"
+            })
+          .select("g.pas2deform")                 // on ne déforme pas les textes !!!
+          .attr("transform", function(d,i)        // taille fixe pour le texte du semestre zoommé
+            {
+              return ( i==(j-1)? "scale("+(1/tabZoomRect[j][i])+",1)" : null )
+            })
+          .select("text.TITRESsemestre")
+          .attr("x", function(d,i)                // position centrée correcte du titre des semestres
+            {
+              return (i==(j-1)? largPLUS/2:largMOINS/2/zoomMOINS )
+            })
+          .each("end",function(d,i)
+            {
+              LESBULLES.attr("opacity", 1);  // on rend visible les bulles
+              d3.selectAll(".CoursS"+(i+1)).style("opacity", 1)  // on rend visible les rectangles des cours
+              d3.selectAll(".TitreCoursS"+(i+1)).style("opacity", 1)  // on rend visible les rectangles des cours
+            });
+          } else {
+            if (j != 0) {zoomrectangle(0)};
+          }
+        }
+// Fin fonction zoomrectangle
+
+
+
+
+//=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
+    function TRAVAILsurFILIATIONbulle(TABcompetence) {          // TABcompetence correspond aux données de la competence
+
+      // construction de la filiation des compétences : si "a" est le fils de "b" alors "b" est le père de "a"
+      var j = 1;
+
+      while ( TABcompetence["Parent"+j].trim() ) // trim => suppression dependances composées d'espaces
+      {
+        var temp = TABcompetence["Parent"+j].trim();
+
+        if ( contains(liste2compORIG, temp) ) {
+          try {
+            FilsDe[temp].push(TABcompetence.Code);
+          } catch (TypeError) {
+            FilsDe[temp] = [];   // initialisation si erreur avec méthode push()
+            FilsDe[temp].push(TABcompetence.Code);
+          }
+        } else {
+          console.log("La compétence parent " + temp + " n'existe pas !!!");
+        }
+        j++;
+      }
+    }
+
+function contains(a, obj) {
+    var i = a.length;
+    while (i--) {
+       if (a[i] === obj) {
+           return true;
+       }
+    }
+    return false;
+}
+
+//=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
+    function ENTREbulle(TABcompetence, LAbulle) {          // d correspond aux données de la competence
+
+      //Récupère la position de la bulle dans le rectangle
+      var xPosition = d3.event.clientX;   // position absolue donc par rapport au bord gauche de la fenêtre
+
+      // coordonnées y de la bulle par rapport au rectangle dans lequel elle se trouve !!!
+      var yPositionBulle = parseFloat( d3.select(LAbulle).attr("cy") );
+
+      // Mise à jour de la position verticale de l'infobulle en fonction de la position de la bulle sur le graphe
+      if (yPositionBulle < 1/2 * hautTOTAL) {
+        d3.select("#IDinfoCOMPETENCE").style("top", (yPositionBulle + rayonCOMP) + "px").style("bottom", null);
+      } else {
+        d3.select("#IDinfoCOMPETENCE").style("bottom", (hautTOTAL - yPositionBulle ) + "px").style("top", null);
+      }
+
+      // Mise à jour de la position horizontale si la bulle est trop près du bord droite
+      if (xPosition < 0.8 * largTOTAL ) {
+        d3.select("#IDinfoCOMPETENCE").style("left", (xPosition + 0.6 * rayonCOMP) + "px");
+      } else {
+        d3.select("#IDinfoCOMPETENCE").style("left", (xPosition - 220) + "px");  // 220 = largeur du infobulle
+      }
+
+      // on ajoute le texte dans l'infobulle
+      //d3.select("#IDnomDUcours1").text( "Cours : " + TABcompetence.Cours);  // nom du cours
+      d3.select("#IDvalue").text( TABcompetence.Description );
+
+      //d3.select("#IDresponsable1").text( "Responsable : "+( TABcompetence.Responsable ? TABcompetence.Responsable  : "...") );  // nom responsable
+
+      // On rend visible l'infobulle
+      d3.select("#IDinfoCOMPETENCE").classed("hidden", false);
+
+      // La bulle survolée est également colorée !!!
+      d3.select(LAbulle).attr("fill", coulPOINTEUR);
+
+      // Mise à jour de la couleur des parents
+      // recherche des parents ( TABcompetence.Parent1, TABcompetence.Parent2,...) !!!
+      var j = 1;
+      while ( TABcompetence["Parent"+j].trim() )    // trim => suppression dependances composées d'espaces
+      {
+        var temp = "#"+TABcompetence["Parent"+j];
+        d3.select(temp).attr("fill",coulPARENTS);
+        j++
+      }
+
+      // Mise à jour de la couleur des fils contenu dans le tableau FilsDe[CODE2competence]) !!!
+      try { var long = FilsDe[TABcompetence.Code].length }  // si le tableau n'existe pas
+      catch (e) {long = 0;}
+
+      for (var j = 0; j < long ; j++) {
+        var temp = "#"+FilsDe[TABcompetence.Code][j];
+        d3.select(temp).attr("fill",coulFILS);
+      }
+
+    }
+// Fin fonction ENTREbulle
+
+
+//=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
+    function SORTIEbulle(TABcompetence, LAbulle) {
+      // On rend invisible l'infobulle
+      d3.select("#IDinfoCOMPETENCE").classed("hidden", true);
+
+      // on remet la bulle à sa couleur initiale  TABcompetence.Code = nom de la competence
+      d3.select(LAbulle).attr("fill", CouleurCompetence[ TABcompetence.Code ] );
+
+      // recherche des parents ( TABcompetence.Parent1, TABcompetence.Parent2,...) !!!
+      // on remet la couleur initiale de la bulle de l"étudiant
+      var j=1;
+      while ( TABcompetence["Parent"+j].trim() )     // trim => suppression dependances composées d'espaces
+        {
+          var temp = "#"+TABcompetence["Parent"+j];
+          d3.select(temp).attr("fill",CouleurCompetence[ TABcompetence["Parent"+j]] );
+          j++
+        }
+
+      // Mise à jour de la couleur des fils contenu dans le tableau FilsDe[CODE2competence]) !!!
+      try { var long = FilsDe[TABcompetence.Code].length }  // si le tableau n'existe pas
+      catch (e) {long = 0;}
+
+      for (var j = 0; j < long ; j++) {
+        var temp = "#"+FilsDe[TABcompetence.Code][j];
+        d3.select(temp).attr("fill",CouleurCompetence[ FilsDe[TABcompetence.Code][j]]);
+      }
+
+    };
+// Fin fonction SORTIEbulle
+
+//=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
+    function ENTREcours(d, LEcours) {          // d correspond aux données du cours
+
+      //Récupère la position de la bulle dans le rectangle
+      var xPosition = d3.event.clientX;   // position absolue donc par rapport au bord gauche de la fenêtre
+
+      // coordonnées y de la bulle par rapport au rectangle dans lequel elle se trouve !!!
+      var yPosition = parseFloat( d3.select(LEcours).attr("y") );
+
+      // Mise à jour de la position verticale de l'infobulle en fonction de la position de la bulle sur le graphe
+      d3.select("#IDinfoCOURS").style("top", yPosition+"px").style("bottom", null);
+
+      // Mise à jour de la position horizontale si la bulle est trop près du bord droite
+      if (xPosition < 0.8 * largTOTAL ) {
+        d3.select("#IDinfoCOURS").style("left", (xPosition + 0.6 * rayonCOMP) + "px");
+      } else {
+        d3.select("#IDinfoCOURS").style("left", (xPosition - 220) + "px");  // 220 = largeur du infobulle
+      }
+
+      // on ajoute le texte dans l'infobulle
+      d3.select("#IDnomDUcours2").text( "" + d.NomDuCours);  // nom du cours
+      d3.select("#IDresponsable2").text( ""+( d.Responsable ? d.Responsable  : "...") );  // nom du responsable
+
+      // On rend visible l'infobulle
+      d3.select("#IDinfoCOURS").classed("hidden", false);
+
+    }
+// Fin fonction ENTREcours
+
+
+//=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
+    function SORTIEcours() {
+      // On rend invisible l'infobulle
+      d3.select("#IDinfoCOURS").classed("hidden", true);
+    };
+// Fin fonction SORTIEcours
+
+
+//=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
+    function fonctionchoixannee () {
+      // on filtre les données étudiants pour ne garder qu"une promo
+      // on recupere la valeur du menu des filieres : TXTmenu ou L1, L2, ...
+      var valeurANNEE = document.getElementById("IDmenuAnnee").value;
+
+      // définition de la fonction de tri pour la fonction "filter"
+      function filtrerPARannee(obj) {
+        if (   valeurANNEE == TXTmenu  ||   valeurANNEE == obj["annee"] )
+          {             // si aucune filière on prend tout sinon on prend les étudiants de la filiere
+            return true;
+          } else {
+            return false;
+          }
+        }
+      datacsvFILTREE = csvETUD.filter(filtrerPARannee);
+
+      // on associe les données des étudiants de l'année correspondante au menu étudiant
+      var SELECTIONmiseajour = d3.select("#IDmenuEtudiant").selectAll("option.etudiant")
+        .data( datacsvFILTREE, function (d) {  return d.identifiant;} );
+
+      // on re-peuple le menu des etudiants via la clé identifiant : value=identifiant
+      SELECTIONmiseajour.enter().append("option").attr("class","etudiant" )
+        .attr("value",function (d) {  return d.identifiant;   }     )
+        .text(function (d)         {  return d.nom + " " + d.prenom;   }   );
+
+      // on supprime les anciens
+      SELECTIONmiseajour.exit().remove();
+
+      // on resélectionne le menu "choisissez un étudiant"
+      document.getElementById("IDmenuEtudiant").selectedIndex = 0;
+      fonctionchoixetudiant();
+    }
+
+
+
+//=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
+    function fonctionchoixetudiant () {
+      // on récupère les données de l'étudiant du menu
+      // Premiere ligne index = 0 = "Sélectionner un etudiant"    DATAetudiant= undefined
+      //      index = 1 = premier etudiant de la liste !)
+      var indice = document.getElementById("IDmenuEtudiant").selectedIndex;
+
+      if ( indice != 0 ) {
+        DATAetudiant = datacsvFILTREE[indice  - 1 ];
+
+        // liste2coul = tableau contenant les couleurs de chaque compétence pour l'étudiant sélectionné dans le menu
+        var liste2coul = liste2comp.map( function(obj) {
+            return PALETTEcouleurCOMP[+DATAetudiant[obj]];    // signe +   ==> conversion en nombre
+          } );
+      } else {              // Si "Sélectionner un etudiant"  alors on remet la couleur par défaut
+        liste2coul = liste2comp.map( function(obj) {
+            return PALETTEcouleurCOMP[0];                     // si "undefined" : pas d'étudiant
+          } );
+      }
+
+      // on cree un objet CouleurCompetence qui associe la clé "competence" à une "couleur"
+      liste2comp.map( function( value, index ) {
+            CouleurCompetence[ value ] = liste2coul[ index ];
+        } );
+
+      // on met à jour les couleurs de chaque bulle à partir du tableau CouleurCompetence
+      LESBULLES.attr("fill", function(d) {
+          // retourne CouleurCompetence[ d.Code ] ou bien PALETTEcouleurCOMP[0] si pb de nom de competence différente dans les deux fichiers !!!
+        return CouleurCompetence[ d.Code ] || PALETTEcouleurCOMP[0] ;
+      } );
+    }
+
+
+//=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
+    function AffichageTitreCours() {            // fonction bascule qui affiche ou masque les titres des cours
+
+    if (AFFICHEcours == 1) {
+      for (var i in listeDESsemestres) {          // on rend invisible les titres des cours
+        d3.selectAll(".TitreCours"+listeDESsemestres[i]).style("opacity", 0);
+        AFFICHEcours = 0;
+      }
+    } else {
+      for (var i in listeDESsemestres) {          // on rend invisible les titres des cours
+        d3.selectAll(".TitreCours"+listeDESsemestres[i]).style("opacity", 1);
+        AFFICHEcours = 1;
+      }
+    }
+    }
+
+
+    </script>
+
+  </body>
+  </html>
+
